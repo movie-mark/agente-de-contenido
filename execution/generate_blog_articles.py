@@ -13,6 +13,7 @@ from typing import Dict, List, Any
 from pathlib import Path
 from dotenv import load_dotenv
 from anthropic import Anthropic
+import requests
 
 # Cargar variables de entorno
 load_dotenv()
@@ -20,6 +21,7 @@ load_dotenv()
 # Configuración
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-20241022")
+WEBHOOK_URL_BLOG_ARTICLES = os.getenv("WEBHOOK_URL_BLOG_ARTICLES")  # Opcional
 
 if not CLAUDE_API_KEY:
     print("ERROR: CLAUDE_API_KEY no está configurada en .env")
@@ -278,6 +280,87 @@ Responde en formato JSON con un array de objetos, cada uno con las claves: "titu
         return []
 
 
+def convertir_array_a_objeto(array: List[Any], prefijo: str = "item") -> Dict[str, Any]:
+    """Convierte un array en un objeto con claves numeradas para facilitar mapeo en n8n.
+    
+    Args:
+        array: Lista a convertir
+        prefijo: Prefijo para las claves (por defecto "item")
+        
+    Returns:
+        Diccionario con claves como "item_1", "item_2", etc.
+    """
+    if not array:
+        return {}
+    return {f"{prefijo}_{i+1}": item for i, item in enumerate(array)}
+
+
+def enviar_webhook(webhook_url: str, resultado: Dict[str, Any], output_file: str) -> bool:
+    """Envía un webhook con los resultados del proceso de generación de artículos de blog.
+    
+    Args:
+        webhook_url: URL del webhook a enviar
+        resultado: Diccionario con los resultados del proceso
+        output_file: Ruta del archivo JSON generado
+        
+    Returns:
+        True si el webhook se envió exitosamente, False en caso contrario
+    """
+    try:
+        articulos = resultado.get("articulos", {})
+        
+        # Estructurar el payload para el webhook
+        payload = {
+            "event": "blog_articles_generation_completed",
+            "status": "success",
+            "timestamp": resultado.get("timestamp"),
+            "output_file": output_file,
+            "workflow": "generate_blog_articles",
+            "data": {
+                "source_file": resultado.get("source_file"),
+                "product_info": resultado.get("product_info", {}),
+                "articulos": {
+                    "descubrimiento": {
+                        "count": len(articulos.get("descubrimiento", [])),
+                        "items": convertir_array_a_objeto(articulos.get("descubrimiento", []), "articulo")
+                    },
+                    "consideracion": {
+                        "count": len(articulos.get("consideracion", [])),
+                        "items": convertir_array_a_objeto(articulos.get("consideracion", []), "articulo")
+                    },
+                    "decision": {
+                        "count": len(articulos.get("decision", [])),
+                        "items": convertir_array_a_objeto(articulos.get("decision", []), "articulo")
+                    },
+                    "total_count": (
+                        len(articulos.get("descubrimiento", [])) +
+                        len(articulos.get("consideracion", [])) +
+                        len(articulos.get("decision", []))
+                    )
+                }
+            }
+        }
+        
+        # Enviar webhook
+        response = requests.post(
+            webhook_url,
+            json=payload,
+            headers={"Content-Type": "application/json"},
+            timeout=10
+        )
+        
+        response.raise_for_status()
+        print(f"✅ Webhook enviado exitosamente a {webhook_url}")
+        return True
+        
+    except requests.exceptions.RequestException as e:
+        print(f"⚠️  Advertencia: Error al enviar webhook: {e}")
+        return False
+    except Exception as e:
+        print(f"⚠️  Advertencia: Error inesperado al enviar webhook: {e}")
+        return False
+
+
 def main():
     """Función principal del script."""
     parser = argparse.ArgumentParser(
@@ -346,6 +429,13 @@ def main():
         print(f"  - Consideración: {len(articulos_consideracion)} artículos")
         print(f"  - Decisión: {len(articulos_decision)} artículos")
         print(f"  - Total: {len(articulos_descubrimiento) + len(articulos_consideracion) + len(articulos_decision)} artículos")
+        
+        # Enviar webhook si está configurado
+        if WEBHOOK_URL_BLOG_ARTICLES:
+            print(f"\n📡 Enviando webhook a {WEBHOOK_URL_BLOG_ARTICLES}...")
+            enviar_webhook(WEBHOOK_URL_BLOG_ARTICLES, resultado, output_file)
+        else:
+            print("\nℹ️  WEBHOOK_URL_BLOG_ARTICLES no configurado en .env - omitiendo envío de webhook")
         
     except Exception as e:
         print(f"\n❌ Error fatal: {e}")
