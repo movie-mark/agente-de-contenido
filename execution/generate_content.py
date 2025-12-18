@@ -9,11 +9,9 @@ import json
 import sys
 import argparse
 from datetime import datetime
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from dotenv import load_dotenv
 from anthropic import Anthropic
-import requests
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Cargar variables de entorno
 load_dotenv()
@@ -21,7 +19,6 @@ load_dotenv()
 # Configuración
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-20241022")
-WEBHOOK_URL_ORGANIC_CONTENT = os.getenv("WEBHOOK_URL_ORGANIC_CONTENT")  # Opcional
 
 if not CLAUDE_API_KEY:
     print("ERROR: CLAUDE_API_KEY no está configurada en .env")
@@ -44,16 +41,14 @@ def generar_buyer_persona(product_info: Dict[str, str]) -> Dict[str, Any]:
     """Genera el perfil del buyer persona usando Claude."""
     prompt = f"""Soy {product_info['empresa']}, {product_info['tipo_empresa']}, y vendo {product_info['producto']}, en {product_info['ubicacion']} y mi principal cliente son {product_info['cliente_principal']}. 
 
-Crea un resumen a modo de estudio del cliente, de las características de las personas que me compran y qué buscan en mi producto. 
-
-IMPORTANTE: Debes incluir EXACTAMENTE 10 dolores, EXACTAMENTE 10 beneficios y EXACTAMENTE 10 motivadores de compra. No más, no menos.
+Crea un resumen a modo de estudio del cliente, de las características de las personas que me compran y qué buscan en mi producto. Incluye al menos 10 de sus dolores, y al menos 10 beneficios que proporciona mi producto, así como los principales motivadores de compra.
 
 Responde en formato JSON con la siguiente estructura:
 {{
   "resumen": "resumen general del cliente",
-  "dolores": ["dolor1", "dolor2", "dolor3", "dolor4", "dolor5", "dolor6", "dolor7", "dolor8", "dolor9", "dolor10"],
-  "beneficios": ["beneficio1", "beneficio2", "beneficio3", "beneficio4", "beneficio5", "beneficio6", "beneficio7", "beneficio8", "beneficio9", "beneficio10"],
-  "motivadores_compra": ["motivador1", "motivador2", "motivador3", "motivador4", "motivador5", "motivador6", "motivador7", "motivador8", "motivador9", "motivador10"]
+  "dolores": ["dolor1", "dolor2", ...],
+  "beneficios": ["beneficio1", "beneficio2", ...],
+  "motivadores_compra": ["motivador1", "motivador2", ...]
 }}
 """
 
@@ -84,33 +79,12 @@ Responde en formato JSON con la siguiente estructura:
             print(f"⚠️  Advertencia: No se pudo parsear JSON automáticamente. Usando respuesta completa como resumen.")
             buyer_persona = {
                 "resumen": respuesta_texto,
-                "dolores": [""] * 10,
-                "beneficios": [""] * 10,
-                "motivadores_compra": [""] * 10
+                "dolores": [],
+                "beneficios": [],
+                "motivadores_compra": []
             }
         
-        # Asegurar que siempre hay exactamente 10 de cada uno
-        # Si la IA generó más, tomar solo los primeros 10
-        # Si generó menos, rellenar con strings vacíos
-        if "dolores" in buyer_persona:
-            dolores = buyer_persona["dolores"]
-            buyer_persona["dolores"] = (dolores[:10] + [""] * (10 - len(dolores)))[:10]
-        else:
-            buyer_persona["dolores"] = [""] * 10
-            
-        if "beneficios" in buyer_persona:
-            beneficios = buyer_persona["beneficios"]
-            buyer_persona["beneficios"] = (beneficios[:10] + [""] * (10 - len(beneficios)))[:10]
-        else:
-            buyer_persona["beneficios"] = [""] * 10
-            
-        if "motivadores_compra" in buyer_persona:
-            motivadores = buyer_persona["motivadores_compra"]
-            buyer_persona["motivadores_compra"] = (motivadores[:10] + [""] * (10 - len(motivadores)))[:10]
-        else:
-            buyer_persona["motivadores_compra"] = [""] * 10
-        
-        print("✅ Buyer persona generado exitosamente (10 dolores, 10 beneficios, 10 motivadores)")
+        print("✅ Buyer persona generado exitosamente")
         return buyer_persona
         
     except Exception as e:
@@ -126,41 +100,41 @@ def generar_contenido(tipo: str, buyer_persona_texto: str, product_info: Dict[st
 
 {buyer_persona_texto}
 
-Dame 10 ideas específicas de videos cortos para redes sociales dirigidos a mis clientes. La temática de estas ideas debe ser opinión personal (comentar noticia o tema polémico). Deben ser ideas muy interesantes. Deben lograr que la audiencia conecte conmigo y mi producto. Para cada idea dame un título descriptivo, el gancho que tendría al principio y una breve descripción del concepto de la idea.
+Dame 10 ideas específicas de videos cortos para redes sociales dirigidos a mis clientes. La temática de estas ideas debe ser opinión personal (comentar noticia o tema polémico). Deben ser ideas muy interesantes. Deben lograr que la audiencia conecte conmigo y mi producto. Para cada idea dame el gancho que tendría al principio y una breve descripción del concepto de la idea.
 
-Responde en formato JSON con un array de objetos, cada uno con las claves: "titulo", "gancho" y "descripcion".""",
+Responde en formato JSON con un array de objetos, cada uno con las claves: "gancho" y "descripcion".""",
 
         "contraintuitivo": f"""Teniendo en cuenta que mi perfil de cliente es:
 
 {buyer_persona_texto}
 
-Dame 10 ideas específicas de videos cortos para redes sociales dirigidos a mis clientes. La temática de estas ideas debe ser contenido educativo con información contraintuitiva. Deben ser ideas muy interesantes. Deben lograr que la audiencia conecte conmigo y mi producto. Para cada idea dame un título descriptivo, el gancho que tendría al principio y una breve descripción del concepto de la idea.
+Dame 10 ideas específicas de videos cortos para redes sociales dirigidos a mis clientes. La temática de estas ideas debe ser contenido educativo con información contraintuitiva. Deben ser ideas muy interesantes. Deben lograr que la audiencia conecte conmigo y mi producto. Para cada idea dame el gancho que tendría al principio y una breve descripción del concepto de la idea.
 
-Responde en formato JSON con un array de objetos, cada uno con las claves: "titulo", "gancho" y "descripcion".""",
+Responde en formato JSON con un array de objetos, cada uno con las claves: "gancho" y "descripcion".""",
 
         "educativo_practico": f"""Teniendo en cuenta que mi perfil de cliente es:
 
 {buyer_persona_texto}
 
-Dame 10 ideas específicas de videos cortos para redes sociales dirigidos a mis clientes. La temática de estas ideas debe ser contenido educativo con información práctica muy útil. Deben ser ideas muy interesantes. Deben lograr que la audiencia conecte conmigo y mi producto. Para cada idea dame un título descriptivo, el gancho que tendría al principio y una breve descripción del concepto de la idea.
+Dame 10 ideas específicas de videos cortos para redes sociales dirigidos a mis clientes. La temática de estas ideas debe ser contenido educativo con información práctica muy útil. Deben ser ideas muy interesantes. Deben lograr que la audiencia conecte conmigo y mi producto. Para cada idea dame el gancho que tendría al principio y una breve descripción del concepto de la idea.
 
-Responde en formato JSON con un array de objetos, cada uno con las claves: "titulo", "gancho" y "descripcion".""",
+Responde en formato JSON con un array de objetos, cada uno con las claves: "gancho" y "descripcion".""",
 
         "historias_logros": f"""Teniendo en cuenta que mi perfil de cliente es:
 
 {buyer_persona_texto}
 
-Dame 10 ideas específicas de videos cortos para redes sociales dirigidos a mis clientes. La temática de estas ideas debe ser historias interesantes MÍAS (de quien crea el contenido - el profesional o empresa), y particularmente logros profesionales, casos exitosos que haya manejado, momentos de superación profesional, o logros significativos en mi carrera o negocio. Deben ser ideas muy interesantes que muestren mi experiencia, resultados y trayectoria. Deben lograr que la audiencia conecte conmigo y mi producto. Para cada idea dame un título descriptivo, el gancho que tendría al principio y una breve descripción del concepto de la idea.
+Dame 10 ideas específicas de videos cortos para redes sociales dirigidos a mis clientes. La temática de estas ideas debe ser historias interesantes MÍAS (de quien crea el contenido - el profesional o empresa), y particularmente logros profesionales, casos exitosos que haya manejado, momentos de superación profesional, o logros significativos en mi carrera o negocio. Deben ser ideas muy interesantes que muestren mi experiencia, resultados y trayectoria. Deben lograr que la audiencia conecte conmigo y mi producto. Para cada idea dame el gancho que tendría al principio y una breve descripción del concepto de la idea.
 
-Responde en formato JSON con un array de objetos, cada uno con las claves: "titulo", "gancho" y "descripcion".""",
+Responde en formato JSON con un array de objetos, cada uno con las claves: "gancho" y "descripcion".""",
 
         "momentos_vulnerables": f"""Teniendo en cuenta que mi perfil de cliente es:
 
 {buyer_persona_texto}
 
-Dame 10 ideas específicas de videos cortos para redes sociales dirigidos a mis clientes. La temática de estas ideas debe ser momentos vulnerables MÍOS (de quien crea el contenido - el profesional o empresa), no de los clientes. Estos deben ser momentos personales, honestos y auténticos que muestren mi humanidad, mis dudas, mis errores, mis miedos o momentos difíciles relacionados con mi profesión, negocio o trayectoria. Deben ser ideas muy interesantes que generen conexión emocional y humanicen mi marca. Para cada idea dame un título descriptivo, el gancho que tendría al principio y una breve descripción del concepto de la idea.
+Dame 10 ideas específicas de videos cortos para redes sociales dirigidos a mis clientes. La temática de estas ideas debe ser momentos vulnerables MÍOS (de quien crea el contenido - el profesional o empresa), no de los clientes. Estos deben ser momentos personales, honestos y auténticos que muestren mi humanidad, mis dudas, mis errores, mis miedos o momentos difíciles relacionados con mi profesión, negocio o trayectoria. Deben ser ideas muy interesantes que generen conexión emocional y humanicen mi marca. Para cada idea dame el gancho que tendría al principio y una breve descripción del concepto de la idea.
 
-Responde en formato JSON con un array de objetos, cada uno con las claves: "titulo", "gancho" y "descripcion"."""
+Responde en formato JSON con un array de objetos, cada uno con las claves: "gancho" y "descripcion"."""
     }
     
     tipo_labels = {
@@ -200,7 +174,7 @@ Responde en formato JSON con un array de objetos, cada uno con las claves: "titu
         except (json.JSONDecodeError, ValueError) as e:
             print(f"⚠️  Advertencia: No se pudo parsear JSON automáticamente para {tipo_labels[tipo]}")
             # Intentar crear estructura básica desde el texto
-            contenido = [{"titulo": "Ver respuesta completa", "gancho": "Ver respuesta completa", "descripcion": respuesta_texto}]
+            contenido = [{"gancho": "Ver respuesta completa", "descripcion": respuesta_texto}]
         
         print(f"✅ {tipo_labels[tipo]} generado exitosamente ({len(contenido)} ideas)")
         return contenido
@@ -233,120 +207,6 @@ def formatear_buyer_persona_texto(buyer_persona: Dict[str, Any]) -> str:
             texto += f"- {motivador}\n"
     
     return texto
-
-
-def convertir_array_a_objeto(array: List[Any], prefijo: str = "item", limite: int = None) -> Dict[str, Any]:
-    """Convierte un array en un objeto con claves numeradas para facilitar mapeo en n8n.
-    
-    Args:
-        array: Lista a convertir
-        prefijo: Prefijo para las claves (por defecto "item")
-        limite: Número máximo de elementos a incluir. Si se proporciona, siempre devuelve exactamente este número de elementos
-        
-    Returns:
-        Diccionario con claves como "item_1", "item_2", etc.
-    """
-    if not array:
-        if limite:
-            # Si hay límite pero no hay array, crear objeto con valores vacíos
-            return {f"{prefijo}_{i+1}": "" for i in range(limite)}
-        return {}
-    
-    # Limitar el array si se especifica un límite
-    if limite:
-        # Tomar solo los primeros 'limite' elementos y asegurar que siempre haya 'limite' elementos
-        array_limitado = list(array[:limite])
-        # Si hay menos elementos que el límite, rellenar con strings vacíos
-        while len(array_limitado) < limite:
-            array_limitado.append("")
-        return {f"{prefijo}_{i+1}": item for i, item in enumerate(array_limitado)}
-    
-    return {f"{prefijo}_{i+1}": item for i, item in enumerate(array)}
-
-
-def enviar_webhook(webhook_url: str, resultado: Dict[str, Any], output_file: str) -> bool:
-    """Envía un webhook con los resultados del proceso.
-    
-    Args:
-        webhook_url: URL del webhook a enviar
-        resultado: Diccionario con los resultados del proceso
-        output_file: Ruta del archivo JSON generado
-        
-    Returns:
-        True si el webhook se envió exitosamente, False en caso contrario
-    """
-    try:
-        buyer_persona_data = resultado.get("buyer_persona", {})
-        contenido_data = resultado.get("contenido", {})
-        
-        # Estructurar el payload para el webhook
-        payload = {
-            "event": "content_generation_completed",
-            "status": "success",
-            "timestamp": resultado.get("timestamp"),
-            "output_file": output_file,
-            "workflow": "generate_organic_content",
-            "data": {
-                "product_info": resultado.get("product_info", {}),
-                "buyer_persona": {
-                    "resumen": buyer_persona_data.get("resumen", ""),
-                    "dolores_count": len(buyer_persona_data.get("dolores", [])),
-                    "beneficios_count": len(buyer_persona_data.get("beneficios", [])),
-                    "motivadores_count": len(buyer_persona_data.get("motivadores_compra", [])),
-                    "dolores": convertir_array_a_objeto(buyer_persona_data.get("dolores", []), "dolor", limite=10),
-                    "beneficios": convertir_array_a_objeto(buyer_persona_data.get("beneficios", []), "beneficio", limite=10),
-                    "motivadores_compra": convertir_array_a_objeto(buyer_persona_data.get("motivadores_compra", []), "motivador", limite=10)
-                },
-                "contenido": {
-                    "tipos": {
-                        "opinion_personal": {
-                            "count": len(contenido_data.get("opinion_personal", [])),
-                            "ideas": convertir_array_a_objeto(contenido_data.get("opinion_personal", []), "idea")
-                        },
-                        "contraintuitivo": {
-                            "count": len(contenido_data.get("contraintuitivo", [])),
-                            "ideas": convertir_array_a_objeto(contenido_data.get("contraintuitivo", []), "idea")
-                        },
-                        "educativo_practico": {
-                            "count": len(contenido_data.get("educativo_practico", [])),
-                            "ideas": convertir_array_a_objeto(contenido_data.get("educativo_practico", []), "idea")
-                        },
-                        "historias_logros": {
-                            "count": len(contenido_data.get("historias_logros", [])),
-                            "ideas": convertir_array_a_objeto(contenido_data.get("historias_logros", []), "idea")
-                        },
-                        "momentos_vulnerables": {
-                            "count": len(contenido_data.get("momentos_vulnerables", [])),
-                            "ideas": convertir_array_a_objeto(contenido_data.get("momentos_vulnerables", []), "idea")
-                        }
-                    },
-                    "total_ideas": sum(
-                        len(contenido_data.get(tipo, []))
-                        for tipo in ["opinion_personal", "contraintuitivo", "educativo_practico", 
-                                    "historias_logros", "momentos_vulnerables"]
-                    )
-                }
-            }
-        }
-        
-        # Enviar webhook
-        response = requests.post(
-            webhook_url,
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=10
-        )
-        
-        response.raise_for_status()
-        print(f"✅ Webhook enviado exitosamente a {webhook_url}")
-        return True
-        
-    except requests.exceptions.RequestException as e:
-        print(f"⚠️  Advertencia: Error al enviar webhook: {e}")
-        return False
-    except Exception as e:
-        print(f"⚠️  Advertencia: Error inesperado al enviar webhook: {e}")
-        return False
 
 
 def main():
@@ -398,7 +258,7 @@ def main():
         buyer_persona = generar_buyer_persona(product_info)
         buyer_persona_texto = formatear_buyer_persona_texto(buyer_persona)
         
-        # Paso 2: Generar cada tipo de contenido EN PARALELO
+        # Paso 2: Generar cada tipo de contenido
         tipos_contenido = [
             "opinion_personal",
             "contraintuitivo",
@@ -407,28 +267,9 @@ def main():
             "momentos_vulnerables"
         ]
         
-        print("\n🚀 Generando tipos de contenido en paralelo...")
         contenido_resultado = {}
-        
-        # Usar ThreadPoolExecutor para ejecutar en paralelo
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            # Enviar todas las tareas
-            future_to_tipo = {
-                executor.submit(generar_contenido, tipo, buyer_persona_texto, product_info): tipo
-                for tipo in tipos_contenido
-            }
-            
-            # Recopilar resultados conforme se completan
-            for future in as_completed(future_to_tipo):
-                tipo = future_to_tipo[future]
-                try:
-                    contenido = future.result()
-                    contenido_resultado[tipo] = contenido
-                except Exception as e:
-                    print(f"❌ Error al generar contenido {tipo}: {e}")
-                    contenido_resultado[tipo] = []
-        
-        print("\n✅ Todos los tipos de contenido han sido generados")
+        for tipo in tipos_contenido:
+            contenido_resultado[tipo] = generar_contenido(tipo, buyer_persona_texto, product_info)
         
         # Paso 3: Consolidar resultados
         resultado = {
@@ -456,13 +297,6 @@ def main():
         for tipo in tipos_contenido:
             cantidad = len(contenido_resultado.get(tipo, []))
             print(f"  - {tipo}: {cantidad} ideas")
-        
-        # Paso 5: Enviar webhook si está configurado
-        if WEBHOOK_URL_ORGANIC_CONTENT:
-            print(f"\n📡 Enviando webhook a {WEBHOOK_URL_ORGANIC_CONTENT}...")
-            enviar_webhook(WEBHOOK_URL_ORGANIC_CONTENT, resultado, output_file)
-        else:
-            print("\nℹ️  WEBHOOK_URL_ORGANIC_CONTENT no configurado en .env - omitiendo envío de webhook")
         
     except Exception as e:
         print(f"\n❌ Error fatal: {e}")

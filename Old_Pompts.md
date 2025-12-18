@@ -35,24 +35,3 @@ Teniendo en cuenta que mi perfil de cliente es:
 {{1.content[].text}}
 
 Dame 10 ideas específicas de videos cortos para redes sociales dirigidos a mis clientes. La temática de estas ideas debe ser historias interesantes, y particularmente momentos vulnerables. Deben ser ideas muy interesantes. Deben lograr que la audiencia conecte conmigo y mi producto. Para cada idea dame el gancho que tendría al principio y una breve descripción del concepto de la idea.
-
-## PROMT PARA LA CREACION DE CONTENIDO DE DESCUBRIMIENTO 
-Generar identificación emocional y conciencia del problema sin
-mencionar aún la solución quirúrgica, preparando el terreno para
-la siguiente etapa.
-
-## PROMT PARA LA CREACION DE CONTENIDO DE CONSIDERACION 
-Establecer superioridad técnica y confianza en el método,
-diferenciando claramente el enfoque especializado de las opciones
-genéricas disponibles.
-Transición Natural hacia Decisión:
-Cada video debe terminar plantando la semilla de "este es el
-método correcto, ahora necesitas al especialista correcto para
-ejecutarlo"
-.
-
-## PROMT PARA LA CREACION DE CONTENIDO DE DECISION 
-Generar confianza personal en el Dr. Ríos como LA opción para
-este procedimiento específico, moviendo de "necesito esta
-cirugía" a "necesito que ME LA HAGA ÉL"
-.

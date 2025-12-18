@@ -133,12 +133,6 @@ Verifica si existe el archivo `.env` en la raíz del proyecto. Si no existe, cr�
 ```
 CLAUDE_API_KEY=tu_api_key_aqui
 CLAUDE_MODEL=claude-3-5-sonnet-20241022
-
-# URLs de Webhooks (opcionales)
-WEBHOOK_URL_ORGANIC_CONTENT=https://tu-webhook-n8n.com/webhook/organic-content
-WEBHOOK_URL_BLOG_ARTICLES=https://tu-webhook-n8n.com/webhook/blog-articles
-WEBHOOK_URL_GOOGLE_ADS=https://tu-webhook-n8n.com/webhook/google-ads
-WEBHOOK_URL_PAID_SOCIAL_CONTENT=https://tu-webhook-n8n.com/webhook/paid-social-content
 ```
 
 Recuerda reemplazar `tu_api_key_aqui` con tu API key real de Anthropic.
@@ -176,13 +170,6 @@ CLAUDE_API_KEY=tu_api_key_aqui
 
 # Modelo de Claude a usar (opcional, por defecto usa claude-3-5-sonnet-20241022)
 CLAUDE_MODEL=claude-3-5-sonnet-20241022
-
-# URLs de Webhooks para notificaciones (opcionales - solo configura las que necesites)
-# Cuando un workflow completa exitosamente, enviará un POST con los resultados al webhook correspondiente
-WEBHOOK_URL_ORGANIC_CONTENT=https://tu-webhook-n8n.com/webhook/organic-content
-WEBHOOK_URL_BLOG_ARTICLES=https://tu-webhook-n8n.com/webhook/blog-articles
-WEBHOOK_URL_GOOGLE_ADS=https://tu-webhook-n8n.com/webhook/google-ads
-WEBHOOK_URL_PAID_SOCIAL_CONTENT=https://tu-webhook-n8n.com/webhook/paid-social-content
 ```
 
 **⚠️ IMPORTANTE**: 
@@ -243,8 +230,7 @@ Agente de Movie-Mark/
 ├── execution/             # Scripts Python
 │   ├── generate_blog_articles.py
 │   ├── generate_content.py
-│   ├── generate_google_ads_campaign.py
-│   └── generate_paid_social_content.py
+│   └── generate_google_ads_campaign.py
 └── .tmp/                  # Archivos temporales (se crea automáticamente)
 ```
 
@@ -274,13 +260,6 @@ python3 execution/generate_blog_articles.py \
 python3 execution/generate_google_ads_campaign.py \
   --buyer-persona-file .tmp/content_output_YYYYMMDD_HHMMSS.json \
   --blog-articles-file .tmp/blog_articles_YYYYMMDD_HHMMSS.json
-```
-
-### Workflow 4: Generar Contenido para Redes Sociales Pagas
-
-```bash
-python3 execution/generate_paid_social_content.py \
-  --input-file .tmp/content_output_YYYYMMDD_HHMMSS.json
 ```
 
 ## Solución de Problemas

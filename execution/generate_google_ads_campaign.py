@@ -13,7 +13,6 @@ from typing import Dict, List, Any, Optional
 from pathlib import Path
 from dotenv import load_dotenv
 from anthropic import Anthropic
-import requests
 
 # Cargar variables de entorno
 load_dotenv()
@@ -21,7 +20,6 @@ load_dotenv()
 # Configuración
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-20241022")
-WEBHOOK_URL_GOOGLE_ADS = os.getenv("WEBHOOK_URL_GOOGLE_ADS")  # Opcional
 
 if not CLAUDE_API_KEY:
     print("ERROR: CLAUDE_API_KEY no está configurada en .env")
@@ -403,106 +401,6 @@ Responde en formato JSON con un objeto que tenga las claves: "sitelinks" (array)
         return {"sitelinks": [], "callouts": [], "structured_snippets": {}}
 
 
-def convertir_array_a_objeto(array: List[Any], prefijo: str = "item") -> Dict[str, Any]:
-    """Convierte un array en un objeto con claves numeradas para facilitar mapeo en n8n.
-    
-    Args:
-        array: Lista a convertir
-        prefijo: Prefijo para las claves (por defecto "item")
-        
-    Returns:
-        Diccionario con claves como "item_1", "item_2", etc.
-    """
-    if not array:
-        return {}
-    return {f"{prefijo}_{i+1}": item for i, item in enumerate(array)}
-
-
-def enviar_webhook(webhook_url: str, resultado: Dict[str, Any], output_file: str) -> bool:
-    """Envía un webhook con los resultados del proceso de generación de campaña Google Ads.
-    
-    Args:
-        webhook_url: URL del webhook a enviar
-        resultado: Diccionario con los resultados del proceso
-        output_file: Ruta del archivo JSON generado
-        
-    Returns:
-        True si el webhook se envió exitosamente, False en caso contrario
-    """
-    try:
-        campaign = resultado.get("campaign", {})
-        ad_groups = campaign.get("ad_groups", [])
-        
-        # Calcular estadísticas
-        total_keywords = sum(len(ag.get("keywords", [])) for ag in ad_groups)
-        total_ads = sum(len(ag.get("ads", [])) for ag in ad_groups)
-        extensiones = campaign.get("extensions", {})
-        
-        # Convertir ad_groups de array a objeto
-        ad_groups_obj = {}
-        for i, ag in enumerate(ad_groups):
-            ad_groups_obj[f"ad_group_{i+1}"] = {
-                "name": ag.get("name", ""),
-                "keywords_count": len(ag.get("keywords", [])),
-                "ads_count": len(ag.get("ads", [])),
-                "keywords": convertir_array_a_objeto(ag.get("keywords", []), "keyword"),
-                "ads": convertir_array_a_objeto(ag.get("ads", []), "ad")
-            }
-        
-        # Estructurar el payload para el webhook
-        payload = {
-            "event": "google_ads_campaign_generation_completed",
-            "status": "success",
-            "timestamp": resultado.get("timestamp"),
-            "output_file": output_file,
-            "workflow": "generate_google_ads_campaign",
-            "data": {
-                "source_files": resultado.get("source_files", {}),
-                "product_info": resultado.get("product_info", {}),
-                "campaign": {
-                    "name": campaign.get("name", ""),
-                    "type": campaign.get("type", ""),
-                    "settings": campaign.get("settings", {}),
-                    "summary": {
-                        "ad_groups_count": len(ad_groups),
-                        "total_keywords": total_keywords,
-                        "total_ads": total_ads,
-                        "extensions": {
-                            "sitelinks_count": len(extensiones.get("sitelinks", [])),
-                            "callouts_count": len(extensiones.get("callouts", [])),
-                            "has_structured_snippets": bool(extensiones.get("structured_snippets", {}))
-                        }
-                    },
-                    "ad_groups": ad_groups_obj,
-                    "extensions": {
-                        "sitelinks": convertir_array_a_objeto(extensiones.get("sitelinks", []), "sitelink"),
-                        "callouts": convertir_array_a_objeto(extensiones.get("callouts", []), "callout"),
-                        "structured_snippets": extensiones.get("structured_snippets", {})
-                    }
-                }
-            }
-        }
-        
-        # Enviar webhook
-        response = requests.post(
-            webhook_url,
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=10
-        )
-        
-        response.raise_for_status()
-        print(f"✅ Webhook enviado exitosamente a {webhook_url}")
-        return True
-        
-    except requests.exceptions.RequestException as e:
-        print(f"⚠️  Advertencia: Error al enviar webhook: {e}")
-        return False
-    except Exception as e:
-        print(f"⚠️  Advertencia: Error inesperado al enviar webhook: {e}")
-        return False
-
-
 def main():
     """Función principal del script."""
     parser = argparse.ArgumentParser(
@@ -638,13 +536,6 @@ def main():
         print(f"  - Total keywords: {total_keywords}")
         print(f"  - Total anuncios: {total_ads}")
         print(f"  - Extensiones: ✓")
-        
-        # Enviar webhook si está configurado
-        if WEBHOOK_URL_GOOGLE_ADS:
-            print(f"\n📡 Enviando webhook a {WEBHOOK_URL_GOOGLE_ADS}...")
-            enviar_webhook(WEBHOOK_URL_GOOGLE_ADS, resultado, output_file)
-        else:
-            print("\nℹ️  WEBHOOK_URL_GOOGLE_ADS no configurado en .env - omitiendo envío de webhook")
         
     except Exception as e:
         print(f"\n❌ Error fatal: {e}")
